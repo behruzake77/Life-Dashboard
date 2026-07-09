@@ -4,12 +4,11 @@ Shaxsiy nazorat va intizom platformasi — foydalanuvchining shaxsiy murabbiyasi
 
 ## Run & Operate
 
-- `pnpm --filter @workspace/life-os run dev` — frontend (port assigned by workflow)
-- `pnpm --filter @workspace/api-server run dev` — API server (port 8080)
+- Runs via managed artifact workflows (not root-level `pnpm dev`): `artifacts/life-os: web` (frontend), `artifacts/api-server: API Server` (backend), `artifacts/mockup-sandbox: Component Preview Server` (canvas). Restart with the `WorkflowsRestart` tool using those exact names.
 - `pnpm run typecheck` — full typecheck across all packages
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- Required env: `DATABASE_URL` — Postgres connection string
+- Required env: `DATABASE_URL` (Postgres, pre-provisioned), `SESSION_SECRET`, `REPL_ID` (used by Replit Auth) — all already set.
 
 ## Stack
 

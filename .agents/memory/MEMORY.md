@@ -1,0 +1,1 @@
+- [Reimported pnpm-workspace artifacts unregistered](artifact-registration-after-import.md) — listArtifacts()/WorkflowsRestart empty even though artifact.toml files exist; fix via createArtifact probe trick.
