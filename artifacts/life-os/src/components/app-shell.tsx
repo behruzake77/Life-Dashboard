@@ -43,7 +43,7 @@ function SidebarNav({
   onNavigate,
 }: {
   location: string;
-  gamification: ReturnType<typeof useGetGamificationProfile>["data"];
+  gamification: any;
   user: ReturnType<typeof useAuth>["user"];
   logout: () => void;
   onNavigate?: () => void;
