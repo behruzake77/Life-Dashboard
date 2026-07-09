@@ -17,6 +17,8 @@ import {
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useGetGamificationProfile, useGetDashboardStats } from "@workspace/api-client-react";
+import { useAuth } from "@workspace/replit-auth-web";
+import { LogOut } from "lucide-react";
 
 export function AppShell({ children }: { children: ReactNode }) {
   const [location] = useLocation();
@@ -37,6 +39,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   const { data: gamification } = useGetGamificationProfile({ query: { enabled: true, queryKey: ['gamificationProfile'] } });
   const { data: stats } = useGetDashboardStats({ query: { enabled: true, queryKey: ['dashboardStats'] } });
+  const { user, logout } = useAuth();
 
   return (
     <div className="flex min-h-screen flex-col bg-background/95 dark:bg-background">
@@ -80,6 +83,20 @@ export function AppShell({ children }: { children: ReactNode }) {
               );
             })}
           </nav>
+
+          <div className="border-t border-border/50 px-4 py-3 flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              <div className="text-sm font-medium truncate" data-testid="text-user-name">
+                {user?.firstName || user?.email || "Foydalanuvchi"}
+              </div>
+              {user?.email && (
+                <div className="text-xs text-muted-foreground truncate">{user.email}</div>
+              )}
+            </div>
+            <Button variant="ghost" size="icon" onClick={logout} data-testid="button-logout" title="Chiqish">
+              <LogOut className="h-4 w-4" />
+            </Button>
+          </div>
         </aside>
 
         {/* Main Content */}

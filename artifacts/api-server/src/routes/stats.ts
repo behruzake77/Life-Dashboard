@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, and, gte, lte, sql, desc } from "drizzle-orm";
-import { db, tasksTable, habitLogsTable, pomodoroSessionsTable, userProfileTable } from "@workspace/db";
+import { db, tasksTable, habitsTable, habitLogsTable, pomodoroSessionsTable, userProfileTable } from "@workspace/db";
 import {
   GetDashboardStatsResponse,
   GetWeeklyStatsResponse,
@@ -10,6 +10,7 @@ import {
   GetMonthlyStatsQueryParams,
   GetHeatmapQueryParams,
 } from "@workspace/api-zod";
+import { requireAuth } from "../lib/requireAuth";
 
 const router: IRouter = Router();
 
@@ -34,12 +35,14 @@ function endOfDay(date: Date): Date {
   return d;
 }
 
-router.get("/stats/dashboard", async (_req, res): Promise<void> => {
+router.get("/stats/dashboard", requireAuth, async (req, res): Promise<void> => {
+  if (!req.isAuthenticated()) return;
+  const userId = req.user.id;
   const today = new Date().toISOString().split("T")[0];
   const now = new Date();
 
   // Today's tasks
-  const todayTasks = await db.select().from(tasksTable).where(eq(tasksTable.scheduledDate, today));
+  const todayTasks = await db.select().from(tasksTable).where(and(eq(tasksTable.scheduledDate, today), eq(tasksTable.userId, userId)));
   const total = todayTasks.length;
   const completed = todayTasks.filter(t => t.status === "completed").length;
   const missed = todayTasks.filter(t => t.status === "missed" || t.status === "repeatedly_missed").length;
@@ -57,7 +60,7 @@ router.get("/stats/dashboard", async (_req, res): Promise<void> => {
     d.setDate(d.getDate() - i);
     const ds = d.toISOString().split("T")[0];
     const dayTasks = await db.select().from(tasksTable)
-      .where(and(eq(tasksTable.scheduledDate, ds), eq(tasksTable.status, "completed")));
+      .where(and(eq(tasksTable.scheduledDate, ds), eq(tasksTable.status, "completed"), eq(tasksTable.userId, userId)));
     if (dayTasks.length > 0) {
       tempStreak++;
       if (i === 0 || (i > 0 && currentTaskStreak === i - 1 + 1)) currentTaskStreak = tempStreak;
@@ -68,7 +71,9 @@ router.get("/stats/dashboard", async (_req, res): Promise<void> => {
   }
 
   // Habit streaks
-  const habits = await db.select().from(habitLogsTable);
+  const habits = await db.select().from(habitLogsTable)
+    .innerJoin(habitsTable, eq(habitLogsTable.habitId, habitsTable.id))
+    .where(eq(habitsTable.userId, userId));
   const habitStreak = habits.length > 0 ? Math.min(habits.length, 7) : 0;
 
   // Time stats - pomodoro
@@ -78,14 +83,15 @@ router.get("/stats/dashboard", async (_req, res): Promise<void> => {
     .where(and(
       gte(pomodoroSessionsTable.startedAt, todayStart),
       lte(pomodoroSessionsTable.startedAt, todayEnd),
-      eq(pomodoroSessionsTable.status, "completed")
+      eq(pomodoroSessionsTable.status, "completed"),
+      eq(pomodoroSessionsTable.userId, userId)
     ));
   const todayPomodoroMinutes = todaySessions.reduce((acc, s) => acc + s.durationMinutes, 0);
-  const allSessions = await db.select().from(pomodoroSessionsTable).where(eq(pomodoroSessionsTable.status, "completed"));
+  const allSessions = await db.select().from(pomodoroSessionsTable).where(and(eq(pomodoroSessionsTable.status, "completed"), eq(pomodoroSessionsTable.userId, userId)));
   const totalPomodoroMinutes = allSessions.reduce((acc, s) => acc + s.durationMinutes, 0);
 
   // Task time
-  const completedTasks = await db.select().from(tasksTable).where(eq(tasksTable.status, "completed"));
+  const completedTasks = await db.select().from(tasksTable).where(and(eq(tasksTable.status, "completed"), eq(tasksTable.userId, userId)));
   const todayMinutes = todayTasks.filter(t => t.status === "completed").reduce((a, t) => a + (t.durationMinutes ?? 30), 0);
   const totalMinutes = completedTasks.reduce((a, t) => a + (t.durationMinutes ?? 30), 0);
 
@@ -106,7 +112,7 @@ router.get("/stats/dashboard", async (_req, res): Promise<void> => {
     const d = new Date();
     d.setDate(d.getDate() - i);
     const ds = d.toISOString().split("T")[0];
-    const dayTasks = await db.select().from(tasksTable).where(eq(tasksTable.scheduledDate, ds));
+    const dayTasks = await db.select().from(tasksTable).where(and(eq(tasksTable.scheduledDate, ds), eq(tasksTable.userId, userId)));
     const dayCompleted = dayTasks.filter(t => t.status === "completed").length;
     const dayTotal = dayTasks.length;
     const dayPercent = dayTotal > 0 ? Math.round((dayCompleted / dayTotal) * 100) : 0;
@@ -121,14 +127,14 @@ router.get("/stats/dashboard", async (_req, res): Promise<void> => {
 
   // Monthly
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0];
-  const monthTasks = await db.select().from(tasksTable).where(gte(tasksTable.scheduledDate, monthStart));
+  const monthTasks = await db.select().from(tasksTable).where(and(gte(tasksTable.scheduledDate, monthStart), eq(tasksTable.userId, userId)));
   const monthCompleted = monthTasks.filter(t => t.status === "completed").length;
   const monthMissed = monthTasks.filter(t => t.status === "missed" || t.status === "repeatedly_missed").length;
   const monthTotal = monthTasks.length;
   const monthPercent = monthTotal > 0 ? Math.round((monthCompleted / monthTotal) * 100) : 0;
 
   // Gamification profile
-  const [profile] = await db.select().from(userProfileTable);
+  const [profile] = await db.select().from(userProfileTable).where(eq(userProfileTable.userId, userId));
   const xpToNextLevel = profile ? (profile.level * 500) - profile.xp : 500;
 
   const result = {
@@ -169,7 +175,9 @@ router.get("/stats/dashboard", async (_req, res): Promise<void> => {
   res.json(GetDashboardStatsResponse.parse(result));
 });
 
-router.get("/stats/weekly", async (req, res): Promise<void> => {
+router.get("/stats/weekly", requireAuth, async (req, res): Promise<void> => {
+  if (!req.isAuthenticated()) return;
+  const userId = req.user.id;
   const q = GetWeeklyStatsQueryParams.safeParse(req.query);
   const weekBase = q.success && q.data.week ? new Date(q.data.week) : new Date();
 
@@ -190,7 +198,7 @@ router.get("/stats/weekly", async (req, res): Promise<void> => {
     const d = new Date(monday);
     d.setDate(d.getDate() + i);
     const ds = d.toISOString().split("T")[0];
-    const dayTasks = await db.select().from(tasksTable).where(eq(tasksTable.scheduledDate, ds));
+    const dayTasks = await db.select().from(tasksTable).where(and(eq(tasksTable.scheduledDate, ds), eq(tasksTable.userId, userId)));
     const dayCompleted = dayTasks.filter(t => t.status === "completed").length;
     const dayMissed = dayTasks.filter(t => t.status === "missed" || t.status === "repeatedly_missed").length;
     const dayTotal = dayTasks.length;
@@ -220,7 +228,9 @@ router.get("/stats/weekly", async (req, res): Promise<void> => {
   res.json(GetWeeklyStatsResponse.parse(result));
 });
 
-router.get("/stats/monthly", async (req, res): Promise<void> => {
+router.get("/stats/monthly", requireAuth, async (req, res): Promise<void> => {
+  if (!req.isAuthenticated()) return;
+  const userId = req.user.id;
   const q = GetMonthlyStatsQueryParams.safeParse(req.query);
   const now = new Date();
   const month = now.getMonth() + 1;
@@ -230,7 +240,7 @@ router.get("/stats/monthly", async (req, res): Promise<void> => {
   const monthEnd = new Date(year, month, 0).toISOString().split("T")[0];
 
   const monthTasks = await db.select().from(tasksTable)
-    .where(and(gte(tasksTable.scheduledDate, monthStart), lte(tasksTable.scheduledDate, monthEnd)));
+    .where(and(gte(tasksTable.scheduledDate, monthStart), lte(tasksTable.scheduledDate, monthEnd), eq(tasksTable.userId, userId)));
 
   const totalCompleted = monthTasks.filter(t => t.status === "completed").length;
   const totalMissed = monthTasks.filter(t => t.status === "missed" || t.status === "repeatedly_missed").length;
@@ -244,7 +254,9 @@ router.get("/stats/monthly", async (req, res): Promise<void> => {
   }));
 });
 
-router.get("/stats/heatmap", async (req, res): Promise<void> => {
+router.get("/stats/heatmap", requireAuth, async (req, res): Promise<void> => {
+  if (!req.isAuthenticated()) return;
+  const userId = req.user.id;
   const q = GetHeatmapQueryParams.safeParse(req.query);
   const days = q.success ? (q.data.days ?? 365) : 365;
 
@@ -252,7 +264,7 @@ router.get("/stats/heatmap", async (req, res): Promise<void> => {
   cutoff.setDate(cutoff.getDate() - days);
   const cutoffStr = cutoff.toISOString().split("T")[0];
 
-  const tasks = await db.select().from(tasksTable).where(gte(tasksTable.scheduledDate, cutoffStr));
+  const tasks = await db.select().from(tasksTable).where(and(gte(tasksTable.scheduledDate, cutoffStr), eq(tasksTable.userId, userId)));
 
   const map = new Map<string, { completed: number; total: number }>();
   for (const t of tasks) {

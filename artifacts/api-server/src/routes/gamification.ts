@@ -1,9 +1,11 @@
 import { Router, type IRouter } from "express";
+import { eq } from "drizzle-orm";
 import { db, userProfileTable, badgesTable, achievementsTable, questsTable } from "@workspace/db";
 import {
   GetGamificationProfileResponse,
   GetAchievementsResponse,
 } from "@workspace/api-zod";
+import { requireAuth } from "../lib/requireAuth";
 
 const router: IRouter = Router();
 
@@ -16,16 +18,19 @@ function getGrade(score: number): string {
   return "F";
 }
 
-router.get("/gamification/profile", async (_req, res): Promise<void> => {
-  let [profile] = await db.select().from(userProfileTable);
+router.get("/gamification/profile", requireAuth, async (req, res): Promise<void> => {
+  if (!req.isAuthenticated()) return;
+  const userId = req.user.id;
+
+  let [profile] = await db.select().from(userProfileTable).where(eq(userProfileTable.userId, userId));
 
   if (!profile) {
-    [profile] = await db.insert(userProfileTable).values({}).returning();
+    [profile] = await db.insert(userProfileTable).values({ userId }).returning();
   }
 
-  const badges = await db.select().from(badgesTable).limit(10);
-  const quests = await db.select().from(questsTable).limit(5);
-  const allAchievements = await db.select().from(achievementsTable);
+  const badges = await db.select().from(badgesTable).where(eq(badgesTable.userId, userId)).limit(10);
+  const quests = await db.select().from(questsTable).where(eq(questsTable.userId, userId)).limit(5);
+  const allAchievements = await db.select().from(achievementsTable).where(eq(achievementsTable.userId, userId));
   const unlockedAchievements = allAchievements.filter(a => a.unlocked).length;
 
   const xpToNextLevel = (profile.level * 500) - profile.xp;
@@ -46,8 +51,9 @@ router.get("/gamification/profile", async (_req, res): Promise<void> => {
   }));
 });
 
-router.get("/gamification/achievements", async (_req, res): Promise<void> => {
-  const achievements = await db.select().from(achievementsTable);
+router.get("/gamification/achievements", requireAuth, async (req, res): Promise<void> => {
+  if (!req.isAuthenticated()) return;
+  const achievements = await db.select().from(achievementsTable).where(eq(achievementsTable.userId, req.user.id));
   res.json(GetAchievementsResponse.parse(achievements.map(a => ({
     ...a,
     unlockedAt: a.unlockedAt ? a.unlockedAt.toISOString() : null,

@@ -9,6 +9,7 @@ import {
   GetWeeklyReportQueryParams,
   GetMonthlyReportQueryParams,
 } from "@workspace/api-zod";
+import { requireAuth } from "../lib/requireAuth";
 
 const router: IRouter = Router();
 
@@ -36,11 +37,13 @@ function generateAiSummary(completed: number, total: number, percent: number): s
   return `Bugun rejangdan ortda qoldingiz (${percent}%). Vaqtni bekorga sarflamang — ertaga yangi boshlanish!`;
 }
 
-router.get("/reports/daily", async (req, res): Promise<void> => {
+router.get("/reports/daily", requireAuth, async (req, res): Promise<void> => {
+  if (!req.isAuthenticated()) return;
+  const userId = req.user.id;
   const q = GetDailyReportQueryParams.safeParse(req.query);
   const date = q.success && q.data.date ? toDateStr(q.data.date) : new Date().toISOString().split("T")[0];
 
-  const tasks = await db.select().from(tasksTable).where(eq(tasksTable.scheduledDate, date));
+  const tasks = await db.select().from(tasksTable).where(and(eq(tasksTable.scheduledDate, date), eq(tasksTable.userId, userId)));
   const total = tasks.length;
   const completed = tasks.filter(t => t.status === "completed").length;
   const missed = tasks.filter(t => t.status === "missed" || t.status === "repeatedly_missed").length;
@@ -55,7 +58,8 @@ router.get("/reports/daily", async (req, res): Promise<void> => {
     .where(and(
       gte(pomodoroSessionsTable.startedAt, dateObj),
       lte(pomodoroSessionsTable.startedAt, new Date(dateObj.getTime() + 86400000)),
-      eq(pomodoroSessionsTable.status, "completed")
+      eq(pomodoroSessionsTable.status, "completed"),
+      eq(pomodoroSessionsTable.userId, userId)
     ));
   const pomodoroMinutes = sessions.reduce((a, s) => a + s.durationMinutes, 0);
 
@@ -81,7 +85,9 @@ router.get("/reports/daily", async (req, res): Promise<void> => {
   }));
 });
 
-router.get("/reports/weekly", async (req, res): Promise<void> => {
+router.get("/reports/weekly", requireAuth, async (req, res): Promise<void> => {
+  if (!req.isAuthenticated()) return;
+  const userId = req.user.id;
   const q = GetWeeklyReportQueryParams.safeParse(req.query);
   const weekBase = q.success && q.data.week ? new Date(q.data.week) : new Date();
 
@@ -99,7 +105,7 @@ router.get("/reports/weekly", async (req, res): Promise<void> => {
     const d = new Date(monday);
     d.setDate(d.getDate() + i);
     const ds = d.toISOString().split("T")[0];
-    const dayTasks = await db.select().from(tasksTable).where(eq(tasksTable.scheduledDate, ds));
+    const dayTasks = await db.select().from(tasksTable).where(and(eq(tasksTable.scheduledDate, ds), eq(tasksTable.userId, userId)));
     const dayCompleted = dayTasks.filter(t => t.status === "completed").length;
     const dayMissed = dayTasks.filter(t => t.status === "missed" || t.status === "repeatedly_missed").length;
     const dayTotal = dayTasks.length;
@@ -136,7 +142,9 @@ router.get("/reports/weekly", async (req, res): Promise<void> => {
   }));
 });
 
-router.get("/reports/monthly", async (req, res): Promise<void> => {
+router.get("/reports/monthly", requireAuth, async (req, res): Promise<void> => {
+  if (!req.isAuthenticated()) return;
+  const userId = req.user.id;
   const now = new Date();
   const month = now.getMonth() + 1;
   const year = now.getFullYear();
@@ -145,7 +153,7 @@ router.get("/reports/monthly", async (req, res): Promise<void> => {
   const monthEnd = new Date(year, month, 0).toISOString().split("T")[0];
 
   const monthTasks = await db.select().from(tasksTable)
-    .where(and(gte(tasksTable.scheduledDate, monthStart), lte(tasksTable.scheduledDate, monthEnd)));
+    .where(and(gte(tasksTable.scheduledDate, monthStart), lte(tasksTable.scheduledDate, monthEnd), eq(tasksTable.userId, userId)));
 
   const totalCompleted = monthTasks.filter(t => t.status === "completed").length;
   const totalMissed = monthTasks.filter(t => t.status === "missed" || t.status === "repeatedly_missed").length;

@@ -4,6 +4,7 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import NotFound from '@/pages/not-found';
 import { Route, Switch, Router as WouterRouter } from 'wouter';
 import { AppShell } from '@/components/app-shell';
+import { AuthGate } from '@/components/auth-gate';
 import Dashboard from '@/pages/dashboard';
 import Tasks from '@/pages/tasks';
 import Habits from '@/pages/habits';
@@ -29,6 +30,7 @@ function ThemeInit() {
 
 function Router() {
   return (
+    <AuthGate>
     <AppShell>
       <Switch>
         <Route path="/" component={Dashboard} />
@@ -45,6 +47,7 @@ function Router() {
         <Route component={NotFound} />
       </Switch>
     </AppShell>
+    </AuthGate>
   );
 }
 

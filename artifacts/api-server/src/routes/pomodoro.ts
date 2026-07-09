@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, gte, desc } from "drizzle-orm";
+import { eq, gte, desc, and } from "drizzle-orm";
 import { db, pomodoroSessionsTable } from "@workspace/db";
 import {
   GetPomodoroSessionsQueryParams,
@@ -10,10 +10,13 @@ import {
   UpdatePomodoroSessionBody,
   UpdatePomodoroSessionResponse,
 } from "@workspace/api-zod";
+import { requireAuth } from "../lib/requireAuth";
 
 const router: IRouter = Router();
 
-router.get("/pomodoro/sessions", async (req, res): Promise<void> => {
+router.get("/pomodoro/sessions", requireAuth, async (req, res): Promise<void> => {
+  if (!req.isAuthenticated()) return;
+  const userId = req.user!.id;
   const q = GetPomodoroSessionsQueryParams.safeParse(req.query);
   let sessions;
 
@@ -22,10 +25,11 @@ router.get("/pomodoro/sessions", async (req, res): Promise<void> => {
     const end = new Date(q.data.date);
     end.setDate(end.getDate() + 1);
     sessions = await db.select().from(pomodoroSessionsTable)
-      .where(gte(pomodoroSessionsTable.startedAt, start))
+      .where(and(eq(pomodoroSessionsTable.userId, userId), gte(pomodoroSessionsTable.startedAt, start)))
       .orderBy(desc(pomodoroSessionsTable.startedAt));
   } else {
     sessions = await db.select().from(pomodoroSessionsTable)
+      .where(eq(pomodoroSessionsTable.userId, userId))
       .orderBy(desc(pomodoroSessionsTable.startedAt))
       .limit(50);
   }
@@ -33,14 +37,18 @@ router.get("/pomodoro/sessions", async (req, res): Promise<void> => {
   res.json(GetPomodoroSessionsResponse.parse(sessions));
 });
 
-router.post("/pomodoro/sessions", async (req, res): Promise<void> => {
+router.post("/pomodoro/sessions", requireAuth, async (req, res): Promise<void> => {
+  if (!req.isAuthenticated()) return;
+  const userId = req.user!.id;
   const parsed = CreatePomodoroSessionBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
-  const [session] = await db.insert(pomodoroSessionsTable).values({ ...parsed.data, status: "active" }).returning();
+  const [session] = await db.insert(pomodoroSessionsTable).values({ ...parsed.data, status: "active", userId }).returning();
   res.status(201).json(CreatePomodoroSessionResponse.parse(session));
 });
 
-router.patch("/pomodoro/sessions/:id", async (req, res): Promise<void> => {
+router.patch("/pomodoro/sessions/:id", requireAuth, async (req, res): Promise<void> => {
+  if (!req.isAuthenticated()) return;
+  const userId = req.user!.id;
   const params = UpdatePomodoroSessionParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   const parsed = UpdatePomodoroSessionBody.safeParse(req.body);
@@ -53,7 +61,7 @@ router.patch("/pomodoro/sessions/:id", async (req, res): Promise<void> => {
 
   const [session] = await db.update(pomodoroSessionsTable)
     .set(updateData)
-    .where(eq(pomodoroSessionsTable.id, params.data.id))
+    .where(and(eq(pomodoroSessionsTable.id, params.data.id), eq(pomodoroSessionsTable.userId, userId)))
     .returning();
   if (!session) { res.status(404).json({ error: "Session not found" }); return; }
 

@@ -18,6 +18,7 @@ import {
   FailTaskBody,
   FailTaskResponse,
 } from "@workspace/api-zod";
+import { requireAuth } from "../lib/requireAuth";
 
 const router: IRouter = Router();
 
@@ -42,9 +43,11 @@ function getGrade(percent: number): string {
   return "F";
 }
 
-router.get("/tasks", async (req, res): Promise<void> => {
+router.get("/tasks", requireAuth, async (req, res): Promise<void> => {
+  if (!req.isAuthenticated()) return;
+  const userId = req.user!.id;
   const q = GetTasksQueryParams.safeParse(req.query);
-  const conditions: ReturnType<typeof eq>[] = [];
+  const conditions: ReturnType<typeof eq>[] = [eq(tasksTable.userId, userId)];
 
   if (q.success) {
     if (q.data.status) conditions.push(eq(tasksTable.status, q.data.status));
@@ -52,14 +55,14 @@ router.get("/tasks", async (req, res): Promise<void> => {
     if (q.data.date) conditions.push(eq(tasksTable.scheduledDate, toDateStr(q.data.date) as string));
   }
 
-  const tasks = conditions.length
-    ? await db.select().from(tasksTable).where(and(...conditions)).orderBy(desc(tasksTable.createdAt))
-    : await db.select().from(tasksTable).orderBy(desc(tasksTable.createdAt));
+  const tasks = await db.select().from(tasksTable).where(and(...conditions)).orderBy(desc(tasksTable.createdAt));
 
   res.json(GetTasksResponse.parse(tasks));
 });
 
-router.post("/tasks", async (req, res): Promise<void> => {
+router.post("/tasks", requireAuth, async (req, res): Promise<void> => {
+  if (!req.isAuthenticated()) return;
+  const userId = req.user!.id;
   const parsed = CreateTaskBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -68,15 +71,18 @@ router.post("/tasks", async (req, res): Promise<void> => {
   const insertData = {
     ...parsed.data,
     scheduledDate: toDateStr(parsed.data.scheduledDate),
+    userId,
   };
   const [task] = await db.insert(tasksTable).values(insertData).returning();
   res.status(201).json(CreateTaskResponse.parse(task));
 });
 
-router.get("/tasks/today", async (req, res): Promise<void> => {
+router.get("/tasks/today", requireAuth, async (req, res): Promise<void> => {
+  if (!req.isAuthenticated()) return;
+  const userId = req.user!.id;
   const today = new Date().toISOString().split("T")[0];
   const tasks = await db.select().from(tasksTable)
-    .where(eq(tasksTable.scheduledDate, today))
+    .where(and(eq(tasksTable.userId, userId), eq(tasksTable.scheduledDate, today)))
     .orderBy(tasksTable.createdAt);
 
   const total = tasks.length;
@@ -89,10 +95,13 @@ router.get("/tasks/today", async (req, res): Promise<void> => {
   res.json(GetTodayTasksResponse.parse({ tasks, total, completed, missed, pending, inProgress, progressPercent }));
 });
 
-router.get("/tasks/overdue", async (req, res): Promise<void> => {
+router.get("/tasks/overdue", requireAuth, async (req, res): Promise<void> => {
+  if (!req.isAuthenticated()) return;
+  const userId = req.user!.id;
   const now = new Date();
   const tasks = await db.select().from(tasksTable)
     .where(and(
+      eq(tasksTable.userId, userId),
       lte(tasksTable.deadline, now),
       sql`${tasksTable.status} NOT IN ('completed', 'missed', 'repeatedly_missed')`
     ))
@@ -101,17 +110,21 @@ router.get("/tasks/overdue", async (req, res): Promise<void> => {
   res.json(GetOverdueTasksResponse.parse(tasks));
 });
 
-router.get("/tasks/:id", async (req, res): Promise<void> => {
+router.get("/tasks/:id", requireAuth, async (req, res): Promise<void> => {
+  if (!req.isAuthenticated()) return;
+  const userId = req.user!.id;
   const id = parseId(req.params.id);
   if (!id) { res.status(400).json({ error: "Invalid id" }); return; }
 
-  const [task] = await db.select().from(tasksTable).where(eq(tasksTable.id, id));
+  const [task] = await db.select().from(tasksTable).where(and(eq(tasksTable.id, id), eq(tasksTable.userId, userId)));
   if (!task) { res.status(404).json({ error: "Task not found" }); return; }
 
   res.json(GetTaskResponse.parse(task));
 });
 
-router.patch("/tasks/:id", async (req, res): Promise<void> => {
+router.patch("/tasks/:id", requireAuth, async (req, res): Promise<void> => {
+  if (!req.isAuthenticated()) return;
+  const userId = req.user!.id;
   const id = parseId(req.params.id);
   if (!id) { res.status(400).json({ error: "Invalid id" }); return; }
 
@@ -123,30 +136,34 @@ router.patch("/tasks/:id", async (req, res): Promise<void> => {
     updateData.completedAt = new Date();
   }
 
-  const [task] = await db.update(tasksTable).set(updateData).where(eq(tasksTable.id, id)).returning();
+  const [task] = await db.update(tasksTable).set(updateData).where(and(eq(tasksTable.id, id), eq(tasksTable.userId, userId))).returning();
   if (!task) { res.status(404).json({ error: "Task not found" }); return; }
 
   res.json(UpdateTaskResponse.parse(task));
 });
 
-router.delete("/tasks/:id", async (req, res): Promise<void> => {
+router.delete("/tasks/:id", requireAuth, async (req, res): Promise<void> => {
+  if (!req.isAuthenticated()) return;
+  const userId = req.user!.id;
   const params = DeleteTaskParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
 
-  const [task] = await db.delete(tasksTable).where(eq(tasksTable.id, params.data.id)).returning();
+  const [task] = await db.delete(tasksTable).where(and(eq(tasksTable.id, params.data.id), eq(tasksTable.userId, userId))).returning();
   if (!task) { res.status(404).json({ error: "Task not found" }); return; }
 
   res.sendStatus(204);
 });
 
-router.post("/tasks/:id/fail", async (req, res): Promise<void> => {
+router.post("/tasks/:id/fail", requireAuth, async (req, res): Promise<void> => {
+  if (!req.isAuthenticated()) return;
+  const userId = req.user!.id;
   const params = FailTaskParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
 
   const parsed = FailTaskBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
 
-  const [existing] = await db.select().from(tasksTable).where(eq(tasksTable.id, params.data.id));
+  const [existing] = await db.select().from(tasksTable).where(and(eq(tasksTable.id, params.data.id), eq(tasksTable.userId, userId)));
   if (!existing) { res.status(404).json({ error: "Task not found" }); return; }
 
   const newFailCount = (existing.failCount ?? 0) + 1;
@@ -154,7 +171,7 @@ router.post("/tasks/:id/fail", async (req, res): Promise<void> => {
 
   const [task] = await db.update(tasksTable)
     .set({ status: newStatus, failureReason: parsed.data.reason, failCount: newFailCount, updatedAt: new Date() })
-    .where(eq(tasksTable.id, params.data.id))
+    .where(and(eq(tasksTable.id, params.data.id), eq(tasksTable.userId, userId)))
     .returning();
 
   res.json(FailTaskResponse.parse(task));

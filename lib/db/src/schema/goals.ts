@@ -1,9 +1,11 @@
-import { pgTable, serial, text, integer, boolean, timestamp, date, doublePrecision } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, integer, boolean, timestamp, date, doublePrecision, varchar } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
+import { usersTable } from "./auth";
 
 export const goalsTable = pgTable("goals", {
   id: serial("id").primaryKey(),
+  userId: varchar("user_id").references(() => usersTable.id, { onDelete: "cascade" }),
   title: text("title").notNull(),
   description: text("description"),
   category: text("category"),
@@ -29,7 +31,7 @@ export const goalStepsTable = pgTable("goal_steps", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
-export const insertGoalSchema = createInsertSchema(goalsTable).omit({ id: true, createdAt: true, updatedAt: true, totalSteps: true, completedSteps: true, progressPercent: true });
+export const insertGoalSchema = createInsertSchema(goalsTable).omit({ id: true, userId: true, createdAt: true, updatedAt: true, totalSteps: true, completedSteps: true, progressPercent: true });
 export const insertGoalStepSchema = createInsertSchema(goalStepsTable).omit({ id: true, createdAt: true });
 export type InsertGoal = z.infer<typeof insertGoalSchema>;
 export type InsertGoalStep = z.infer<typeof insertGoalStepSchema>;

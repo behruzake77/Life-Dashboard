@@ -1,9 +1,11 @@
-import { pgTable, serial, text, integer, boolean, timestamp, date } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, integer, boolean, timestamp, date, varchar } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
+import { usersTable } from "./auth";
 
 export const habitsTable = pgTable("habits", {
   id: serial("id").primaryKey(),
+  userId: varchar("user_id").references(() => usersTable.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   icon: text("icon").notNull().default("⭐"),
   color: text("color").default("#7C3AED"),
@@ -25,7 +27,7 @@ export const habitLogsTable = pgTable("habit_logs", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
-export const insertHabitSchema = createInsertSchema(habitsTable).omit({ id: true, createdAt: true, currentStreak: true, bestStreak: true, totalCompletions: true });
+export const insertHabitSchema = createInsertSchema(habitsTable).omit({ id: true, userId: true, createdAt: true, currentStreak: true, bestStreak: true, totalCompletions: true });
 export const insertHabitLogSchema = createInsertSchema(habitLogsTable).omit({ id: true, createdAt: true });
 export type InsertHabit = z.infer<typeof insertHabitSchema>;
 export type InsertHabitLog = z.infer<typeof insertHabitLogSchema>;

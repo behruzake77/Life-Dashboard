@@ -1,3 +1,4 @@
+export * from "./auth";
 export * from "./tasks";
 export * from "./habits";
 export * from "./goals";
