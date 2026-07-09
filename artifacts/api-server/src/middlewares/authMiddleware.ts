@@ -1,7 +1,7 @@
 import type { AuthUser } from '@workspace/api-zod';
+import { db, usersTable } from '@workspace/db';
+import { eq } from 'drizzle-orm';
 import { type NextFunction, type Request, type Response } from 'express';
-
-import { clearSession, getSession, getSessionId } from '../lib/auth';
 
 declare global {
   namespace Express {
@@ -19,6 +19,45 @@ declare global {
   }
 }
 
+// This deployment is for a single personal user, so there is no login
+// screen or per-request session lookup: every request is treated as the one
+// owner account, which is created on first use if it doesn't exist yet.
+const OWNER_USERNAME = 'owner';
+let ownerUserPromise: Promise<AuthUser> | null = null;
+
+async function getOrCreateOwnerUser(): Promise<AuthUser> {
+  const [existing] = await db
+    .select()
+    .from(usersTable)
+    .where(eq(usersTable.username, OWNER_USERNAME));
+
+  if (existing) {
+    return { id: existing.id, username: existing.username };
+  }
+
+  const [created] = await db
+    .insert(usersTable)
+    .values({ username: OWNER_USERNAME, passwordHash: 'unused' })
+    .onConflictDoNothing()
+    .returning();
+
+  if (created) {
+    return { id: created.id, username: created.username };
+  }
+
+  // Lost a race with another concurrent first request; re-read.
+  const [race] = await db
+    .select()
+    .from(usersTable)
+    .where(eq(usersTable.username, OWNER_USERNAME));
+
+  if (!race) {
+    throw new Error('Failed to provision owner user');
+  }
+
+  return { id: race.id, username: race.username };
+}
+
 export async function authMiddleware(
   req: Request,
   res: Response,
@@ -28,19 +67,17 @@ export async function authMiddleware(
     return this.user != null;
   } as Request['isAuthenticated'];
 
-  const sid = getSessionId(req);
-  if (!sid) {
-    next();
+  if (!ownerUserPromise) {
+    ownerUserPromise = getOrCreateOwnerUser();
+  }
+
+  try {
+    req.user = await ownerUserPromise;
+  } catch (err) {
+    ownerUserPromise = null;
+    next(err);
     return;
   }
 
-  const session = await getSession(sid);
-  if (!session?.user?.id) {
-    await clearSession(res, sid);
-    next();
-    return;
-  }
-
-  req.user = session.user;
   next();
 }
