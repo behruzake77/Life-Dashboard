@@ -3,20 +3,36 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Ultimate Life OS API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: tasks
+    description: Task management
+  - name: habits
+    description: Habit tracking
+  - name: goals
+    description: Goal management
+  - name: stats
+    description: Statistics and analytics
+  - name: pomodoro
+    description: Pomodoro sessions
+  - name: reports
+    description: Daily/Weekly/Monthly reports
+  - name: gamification
+    description: XP, levels, achievements
+  - name: ai
+    description: AI assistant and reports
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +40,714 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  # ─── TASKS ───────────────────────────────────────────────────────────────────
+  /tasks:
+    get:
+      operationId: getTasks
+      tags: [tasks]
+      summary: List all tasks
+      parameters:
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [pending, in_progress, completed, missed, repeatedly_missed]
+        - in: query
+          name: category
+          schema:
+            type: string
+        - in: query
+          name: date
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: List of tasks
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Task"
+    post:
+      operationId: createTask
+      tags: [tasks]
+      summary: Create a task
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TaskInput"
+      responses:
+        "201":
+          description: Created task
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Task"
+
+  /tasks/today:
+    get:
+      operationId: getTodayTasks
+      tags: [tasks]
+      summary: Get today's tasks
+      responses:
+        "200":
+          description: Today's tasks with summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TodayTasksSummary"
+
+  /tasks/overdue:
+    get:
+      operationId: getOverdueTasks
+      tags: [tasks]
+      summary: Get overdue tasks
+      responses:
+        "200":
+          description: Overdue tasks
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Task"
+
+  /tasks/{id}:
+    get:
+      operationId: getTask
+      tags: [tasks]
+      summary: Get a task by id
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Task
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Task"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateTask
+      tags: [tasks]
+      summary: Update a task
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TaskUpdate"
+      responses:
+        "200":
+          description: Updated task
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Task"
+    delete:
+      operationId: deleteTask
+      tags: [tasks]
+      summary: Delete a task
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /tasks/{id}/fail:
+    post:
+      operationId: failTask
+      tags: [tasks]
+      summary: Mark task as failed with reason
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TaskFailInput"
+      responses:
+        "200":
+          description: Updated task
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Task"
+
+  # ─── HABITS ──────────────────────────────────────────────────────────────────
+  /habits:
+    get:
+      operationId: getHabits
+      tags: [habits]
+      summary: List all habits
+      responses:
+        "200":
+          description: List of habits
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Habit"
+    post:
+      operationId: createHabit
+      tags: [habits]
+      summary: Create a habit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HabitInput"
+      responses:
+        "201":
+          description: Created habit
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Habit"
+
+  /habits/{id}:
+    patch:
+      operationId: updateHabit
+      tags: [habits]
+      summary: Update a habit
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HabitUpdate"
+      responses:
+        "200":
+          description: Updated habit
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Habit"
+    delete:
+      operationId: deleteHabit
+      tags: [habits]
+      summary: Delete a habit
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /habits/{id}/log:
+    post:
+      operationId: logHabit
+      tags: [habits]
+      summary: Log a habit completion for today
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HabitLogInput"
+      responses:
+        "201":
+          description: Created habit log
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HabitLog"
+
+  /habits/{id}/logs:
+    get:
+      operationId: getHabitLogs
+      tags: [habits]
+      summary: Get logs for a habit (last 30 days)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Habit logs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/HabitLog"
+
+  /habits/today:
+    get:
+      operationId: getTodayHabits
+      tags: [habits]
+      summary: Get all habits with today's completion status
+      responses:
+        "200":
+          description: Today's habits with status
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/HabitWithStatus"
+
+  # ─── GOALS ───────────────────────────────────────────────────────────────────
+  /goals:
+    get:
+      operationId: getGoals
+      tags: [goals]
+      summary: List all goals
+      responses:
+        "200":
+          description: List of goals
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Goal"
+    post:
+      operationId: createGoal
+      tags: [goals]
+      summary: Create a goal
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GoalInput"
+      responses:
+        "201":
+          description: Created goal
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Goal"
+
+  /goals/{id}:
+    get:
+      operationId: getGoal
+      tags: [goals]
+      summary: Get a goal by id
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Goal with steps
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GoalWithSteps"
+    patch:
+      operationId: updateGoal
+      tags: [goals]
+      summary: Update a goal
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GoalUpdate"
+      responses:
+        "200":
+          description: Updated goal
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Goal"
+    delete:
+      operationId: deleteGoal
+      tags: [goals]
+      summary: Delete a goal
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /goals/{id}/steps:
+    post:
+      operationId: createGoalStep
+      tags: [goals]
+      summary: Add a step to a goal
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GoalStepInput"
+      responses:
+        "201":
+          description: Created goal step
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GoalStep"
+
+  /goals/{id}/steps/{stepId}:
+    patch:
+      operationId: updateGoalStep
+      tags: [goals]
+      summary: Update a goal step
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+        - in: path
+          name: stepId
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GoalStepUpdate"
+      responses:
+        "200":
+          description: Updated goal step
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GoalStep"
+
+  # ─── STATISTICS ──────────────────────────────────────────────────────────────
+  /stats/dashboard:
+    get:
+      operationId: getDashboardStats
+      tags: [stats]
+      summary: Get full dashboard statistics
+      responses:
+        "200":
+          description: Dashboard stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardStats"
+
+  /stats/weekly:
+    get:
+      operationId: getWeeklyStats
+      tags: [stats]
+      summary: Get weekly statistics
+      parameters:
+        - in: query
+          name: week
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Weekly stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WeeklyStats"
+
+  /stats/monthly:
+    get:
+      operationId: getMonthlyStats
+      tags: [stats]
+      summary: Get monthly statistics
+      parameters:
+        - in: query
+          name: month
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Monthly stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MonthlyStats"
+
+  /stats/heatmap:
+    get:
+      operationId: getHeatmap
+      tags: [stats]
+      summary: Get activity heatmap data
+      parameters:
+        - in: query
+          name: days
+          schema:
+            type: integer
+            default: 365
+      responses:
+        "200":
+          description: Heatmap data
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/HeatmapDay"
+
+  # ─── POMODORO ────────────────────────────────────────────────────────────────
+  /pomodoro/sessions:
+    get:
+      operationId: getPomodoroSessions
+      tags: [pomodoro]
+      summary: List pomodoro sessions
+      parameters:
+        - in: query
+          name: date
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Pomodoro sessions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PomodoroSession"
+    post:
+      operationId: createPomodoroSession
+      tags: [pomodoro]
+      summary: Start a pomodoro session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PomodoroSessionInput"
+      responses:
+        "201":
+          description: Created session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PomodoroSession"
+
+  /pomodoro/sessions/{id}:
+    patch:
+      operationId: updatePomodoroSession
+      tags: [pomodoro]
+      summary: Complete or cancel a pomodoro session
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PomodoroSessionUpdate"
+      responses:
+        "200":
+          description: Updated session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PomodoroSession"
+
+  # ─── REPORTS ─────────────────────────────────────────────────────────────────
+  /reports/daily:
+    get:
+      operationId: getDailyReport
+      tags: [reports]
+      summary: Get daily report
+      parameters:
+        - in: query
+          name: date
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Daily report
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DailyReport"
+
+  /reports/weekly:
+    get:
+      operationId: getWeeklyReport
+      tags: [reports]
+      summary: Get weekly report
+      parameters:
+        - in: query
+          name: week
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Weekly report
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WeeklyReport"
+
+  /reports/monthly:
+    get:
+      operationId: getMonthlyReport
+      tags: [reports]
+      summary: Get monthly report
+      parameters:
+        - in: query
+          name: month
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Monthly report
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MonthlyReport"
+
+  # ─── GAMIFICATION ────────────────────────────────────────────────────────────
+  /gamification/profile:
+    get:
+      operationId: getGamificationProfile
+      tags: [gamification]
+      summary: Get user gamification profile
+      responses:
+        "200":
+          description: Gamification profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GamificationProfile"
+
+  /gamification/achievements:
+    get:
+      operationId: getAchievements
+      tags: [gamification]
+      summary: Get all achievements
+      responses:
+        "200":
+          description: Achievements
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Achievement"
+
+  # ─── AI ──────────────────────────────────────────────────────────────────────
+  /ai/daily-report:
+    get:
+      operationId: getAiDailyReport
+      tags: [ai]
+      summary: Get AI-generated daily analysis
+      parameters:
+        - in: query
+          name: date
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: AI daily report
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiReport"
+
+  /ai/messages:
+    get:
+      operationId: getAiMessages
+      tags: [ai]
+      summary: Get AI messages/notifications
+      responses:
+        "200":
+          description: AI messages
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AiMessage"
+    post:
+      operationId: sendAiMessage
+      tags: [ai]
+      summary: Send message to AI assistant and get response
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AiMessageInput"
+      responses:
+        "200":
+          description: AI response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiMessage"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +758,921 @@ components:
       required:
         - status
 
+    # ─── TASK SCHEMAS ───────────────────────────────────────────────────────────
+    Task:
+      type: object
+      required: [id, title, status, priority, category, createdAt]
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: ["string", "null"]
+        category:
+          type: string
+        priority:
+          type: string
+          enum: [low, medium, high, urgent]
+        status:
+          type: string
+          enum: [pending, in_progress, completed, missed, repeatedly_missed]
+        startTime:
+          type: ["string", "null"]
+        endTime:
+          type: ["string", "null"]
+        durationMinutes:
+          type: ["integer", "null"]
+        deadline:
+          type: ["string", "null"]
+          format: date-time
+        recurrence:
+          type: ["string", "null"]
+          enum: [none, daily, weekly, monthly]
+        reminderMinutes:
+          type: ["integer", "null"]
+        attachmentUrl:
+          type: ["string", "null"]
+        imageUrl:
+          type: ["string", "null"]
+        linkUrl:
+          type: ["string", "null"]
+        failureReason:
+          type: ["string", "null"]
+        failCount:
+          type: integer
+        completedAt:
+          type: ["string", "null"]
+          format: date-time
+        scheduledDate:
+          type: ["string", "null"]
+          format: date
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    TaskInput:
+      type: object
+      required: [title, category, priority]
+      properties:
+        title:
+          type: string
+          minLength: 1
+        description:
+          type: string
+        category:
+          type: string
+        priority:
+          type: string
+          enum: [low, medium, high, urgent]
+        startTime:
+          type: string
+        endTime:
+          type: string
+        durationMinutes:
+          type: integer
+        deadline:
+          type: string
+          format: date-time
+        recurrence:
+          type: string
+          enum: [none, daily, weekly, monthly]
+        reminderMinutes:
+          type: integer
+        attachmentUrl:
+          type: string
+        imageUrl:
+          type: string
+        linkUrl:
+          type: string
+        scheduledDate:
+          type: string
+          format: date
+
+    TaskUpdate:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+        description:
+          type: string
+        category:
+          type: string
+        priority:
+          type: string
+          enum: [low, medium, high, urgent]
+        status:
+          type: string
+          enum: [pending, in_progress, completed, missed, repeatedly_missed]
+        startTime:
+          type: string
+        endTime:
+          type: string
+        durationMinutes:
+          type: integer
+        deadline:
+          type: string
+          format: date-time
+        recurrence:
+          type: string
+          enum: [none, daily, weekly, monthly]
+        reminderMinutes:
+          type: integer
+        attachmentUrl:
+          type: string
+        imageUrl:
+          type: string
+        linkUrl:
+          type: string
+        completedAt:
+          type: string
+          format: date-time
+        scheduledDate:
+          type: string
+          format: date
+
+    TaskFailInput:
+      type: object
+      required: [reason]
+      properties:
+        reason:
+          type: string
+          minLength: 1
+
+    TodayTasksSummary:
+      type: object
+      required: [tasks, total, completed, missed, pending, progressPercent]
+      properties:
+        tasks:
+          type: array
+          items:
+            $ref: "#/components/schemas/Task"
+        total:
+          type: integer
+        completed:
+          type: integer
+        missed:
+          type: integer
+        pending:
+          type: integer
+        inProgress:
+          type: integer
+        progressPercent:
+          type: number
+
+    # ─── HABIT SCHEMAS ──────────────────────────────────────────────────────────
+    Habit:
+      type: object
+      required: [id, name, icon, currentStreak, bestStreak, createdAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        icon:
+          type: string
+        color:
+          type: ["string", "null"]
+        description:
+          type: ["string", "null"]
+        targetDays:
+          type: string
+          enum: [daily, weekdays, weekends, custom]
+        currentStreak:
+          type: integer
+        bestStreak:
+          type: integer
+        totalCompletions:
+          type: integer
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+
+    HabitInput:
+      type: object
+      required: [name, icon]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        icon:
+          type: string
+        color:
+          type: string
+        description:
+          type: string
+        targetDays:
+          type: string
+          enum: [daily, weekdays, weekends, custom]
+
+    HabitUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        icon:
+          type: string
+        color:
+          type: string
+        description:
+          type: string
+        targetDays:
+          type: string
+          enum: [daily, weekdays, weekends, custom]
+        isActive:
+          type: boolean
+
+    HabitLog:
+      type: object
+      required: [id, habitId, date, completed]
+      properties:
+        id:
+          type: integer
+        habitId:
+          type: integer
+        date:
+          type: string
+          format: date
+        completed:
+          type: boolean
+        note:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+
+    HabitLogInput:
+      type: object
+      required: [date, completed]
+      properties:
+        date:
+          type: string
+          format: date
+        completed:
+          type: boolean
+        note:
+          type: string
+
+    HabitWithStatus:
+      type: object
+      required: [habit, completedToday]
+      properties:
+        habit:
+          $ref: "#/components/schemas/Habit"
+        completedToday:
+          type: boolean
+        todayLogId:
+          type: ["integer", "null"]
+
+    # ─── GOAL SCHEMAS ───────────────────────────────────────────────────────────
+    Goal:
+      type: object
+      required: [id, title, progressPercent, status, createdAt]
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: ["string", "null"]
+        category:
+          type: ["string", "null"]
+        deadline:
+          type: ["string", "null"]
+          format: date
+        progressPercent:
+          type: number
+        status:
+          type: string
+          enum: [active, completed, paused, abandoned]
+        priority:
+          type: string
+          enum: [low, medium, high]
+        totalSteps:
+          type: integer
+        completedSteps:
+          type: integer
+        aiAdvice:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    GoalInput:
+      type: object
+      required: [title]
+      properties:
+        title:
+          type: string
+          minLength: 1
+        description:
+          type: string
+        category:
+          type: string
+        deadline:
+          type: string
+          format: date
+        priority:
+          type: string
+          enum: [low, medium, high]
+
+    GoalUpdate:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        category:
+          type: string
+        deadline:
+          type: string
+          format: date
+        status:
+          type: string
+          enum: [active, completed, paused, abandoned]
+        priority:
+          type: string
+          enum: [low, medium, high]
+        progressPercent:
+          type: number
+
+    GoalStep:
+      type: object
+      required: [id, goalId, title, completed, order]
+      properties:
+        id:
+          type: integer
+        goalId:
+          type: integer
+        title:
+          type: string
+        description:
+          type: ["string", "null"]
+        completed:
+          type: boolean
+        order:
+          type: integer
+        deadline:
+          type: ["string", "null"]
+          format: date
+        createdAt:
+          type: string
+          format: date-time
+
+    GoalStepInput:
+      type: object
+      required: [title]
+      properties:
+        title:
+          type: string
+          minLength: 1
+        description:
+          type: string
+        deadline:
+          type: string
+          format: date
+        order:
+          type: integer
+
+    GoalStepUpdate:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        completed:
+          type: boolean
+        deadline:
+          type: string
+          format: date
+        order:
+          type: integer
+
+    GoalWithSteps:
+      type: object
+      required: [goal, steps]
+      properties:
+        goal:
+          $ref: "#/components/schemas/Goal"
+        steps:
+          type: array
+          items:
+            $ref: "#/components/schemas/GoalStep"
+
+    # ─── STATS SCHEMAS ──────────────────────────────────────────────────────────
+    DashboardStats:
+      type: object
+      required: [today, streaks, time, scores, weekly, monthly]
+      properties:
+        today:
+          $ref: "#/components/schemas/TodayStats"
+        streaks:
+          $ref: "#/components/schemas/StreakStats"
+        time:
+          $ref: "#/components/schemas/TimeStats"
+        scores:
+          $ref: "#/components/schemas/ScoreStats"
+        weekly:
+          $ref: "#/components/schemas/WeeklyProgressStats"
+        monthly:
+          $ref: "#/components/schemas/MonthlyProgressStats"
+        gamification:
+          $ref: "#/components/schemas/GamificationProfile"
+
+    TodayStats:
+      type: object
+      required: [total, completed, missed, pending, progressPercent, grade, date]
+      properties:
+        total:
+          type: integer
+        completed:
+          type: integer
+        missed:
+          type: integer
+        pending:
+          type: integer
+        inProgress:
+          type: integer
+        progressPercent:
+          type: number
+        grade:
+          type: string
+          enum: [A+, A, B, C, D, F]
+        date:
+          type: string
+          format: date
+
+    StreakStats:
+      type: object
+      required: [currentTaskStreak, bestTaskStreak, currentHabitStreak, bestHabitStreak]
+      properties:
+        currentTaskStreak:
+          type: integer
+        bestTaskStreak:
+          type: integer
+        currentHabitStreak:
+          type: integer
+        bestHabitStreak:
+          type: integer
+
+    TimeStats:
+      type: object
+      required: [todayMinutes, totalMinutes, todayPomodoroMinutes]
+      properties:
+        todayMinutes:
+          type: integer
+        totalMinutes:
+          type: integer
+        todayPomodoroMinutes:
+          type: integer
+        totalPomodoroMinutes:
+          type: integer
+
+    ScoreStats:
+      type: object
+      required: [disciplineScore, productivityScore, weeklyScore, monthlyScore]
+      properties:
+        disciplineScore:
+          type: number
+        productivityScore:
+          type: number
+        weeklyScore:
+          type: number
+        monthlyScore:
+          type: number
+        yearlyScore:
+          type: number
+
+    WeeklyProgressStats:
+      type: object
+      required: [days]
+      properties:
+        days:
+          type: array
+          items:
+            $ref: "#/components/schemas/DayProgress"
+        bestDay:
+          type: ["string", "null"]
+        worstDay:
+          type: ["string", "null"]
+        avgCompletion:
+          type: number
+
+    MonthlyProgressStats:
+      type: object
+      required: [progressPercent, totalCompleted, totalMissed]
+      properties:
+        progressPercent:
+          type: number
+        totalCompleted:
+          type: integer
+        totalMissed:
+          type: integer
+
+    DayProgress:
+      type: object
+      required: [date, completed, total, percent]
+      properties:
+        date:
+          type: string
+          format: date
+        completed:
+          type: integer
+        total:
+          type: integer
+        percent:
+          type: number
+        grade:
+          type: string
+
+    WeeklyStats:
+      type: object
+      required: [weekStart, weekEnd, days, summary]
+      properties:
+        weekStart:
+          type: string
+          format: date
+        weekEnd:
+          type: string
+          format: date
+        days:
+          type: array
+          items:
+            $ref: "#/components/schemas/DayProgress"
+        summary:
+          $ref: "#/components/schemas/WeekSummary"
+
+    WeekSummary:
+      type: object
+      required: [totalCompleted, totalMissed, avgCompletion, bestDay, worstDay, bestCategory, worstCategory]
+      properties:
+        totalCompleted:
+          type: integer
+        totalMissed:
+          type: integer
+        avgCompletion:
+          type: number
+        bestDay:
+          type: ["string", "null"]
+        worstDay:
+          type: ["string", "null"]
+        bestCategory:
+          type: ["string", "null"]
+        worstCategory:
+          type: ["string", "null"]
+        totalPomodoroMinutes:
+          type: integer
+        streak:
+          type: integer
+
+    MonthlyStats:
+      type: object
+      required: [month, year, weeks, summary]
+      properties:
+        month:
+          type: integer
+        year:
+          type: integer
+        weeks:
+          type: array
+          items:
+            $ref: "#/components/schemas/WeekSummary"
+        summary:
+          $ref: "#/components/schemas/MonthSummary"
+
+    MonthSummary:
+      type: object
+      required: [totalCompleted, totalMissed, avgCompletion, topCategory]
+      properties:
+        totalCompleted:
+          type: integer
+        totalMissed:
+          type: integer
+        avgCompletion:
+          type: number
+        topCategory:
+          type: ["string", "null"]
+        bottomCategory:
+          type: ["string", "null"]
+        discoveredHabits:
+          type: array
+          items:
+            type: string
+        lostHabits:
+          type: array
+          items:
+            type: string
+
+    HeatmapDay:
+      type: object
+      required: [date, count, level]
+      properties:
+        date:
+          type: string
+          format: date
+        count:
+          type: integer
+        level:
+          type: integer
+
+    # ─── POMODORO SCHEMAS ───────────────────────────────────────────────────────
+    PomodoroSession:
+      type: object
+      required: [id, type, durationMinutes, status, startedAt]
+      properties:
+        id:
+          type: integer
+        taskId:
+          type: ["integer", "null"]
+        type:
+          type: string
+          enum: [focus, short_break, long_break]
+        durationMinutes:
+          type: integer
+        status:
+          type: string
+          enum: [active, completed, cancelled]
+        startedAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: ["string", "null"]
+          format: date-time
+        notes:
+          type: ["string", "null"]
+
+    PomodoroSessionInput:
+      type: object
+      required: [type, durationMinutes]
+      properties:
+        taskId:
+          type: integer
+        type:
+          type: string
+          enum: [focus, short_break, long_break]
+        durationMinutes:
+          type: integer
+
+    PomodoroSessionUpdate:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [completed, cancelled]
+        completedAt:
+          type: string
+          format: date-time
+        notes:
+          type: string
+
+    # ─── REPORT SCHEMAS ─────────────────────────────────────────────────────────
+    DailyReport:
+      type: object
+      required: [date, completed, missed, progressPercent, grade, topCompletions, topMisses, aiSummary, aiTomorrow]
+      properties:
+        date:
+          type: string
+          format: date
+        completed:
+          type: integer
+        missed:
+          type: integer
+        total:
+          type: integer
+        progressPercent:
+          type: number
+        grade:
+          type: string
+        topCompletions:
+          type: array
+          items:
+            type: string
+        topMisses:
+          type: array
+          items:
+            type: string
+        bestProductiveHour:
+          type: ["string", "null"]
+        lostTimeMinutes:
+          type: integer
+        pomodoroMinutes:
+          type: integer
+        aiSummary:
+          type: string
+        aiTomorrow:
+          type: string
+        disciplineScore:
+          type: number
+
+    WeeklyReport:
+      type: object
+      required: [weekStart, weekEnd, stats, aiAnalysis]
+      properties:
+        weekStart:
+          type: string
+          format: date
+        weekEnd:
+          type: string
+          format: date
+        stats:
+          $ref: "#/components/schemas/WeeklyStats"
+        aiAnalysis:
+          type: string
+        recommendations:
+          type: array
+          items:
+            type: string
+
+    MonthlyReport:
+      type: object
+      required: [month, year, stats, aiAnalysis]
+      properties:
+        month:
+          type: integer
+        year:
+          type: integer
+        stats:
+          $ref: "#/components/schemas/MonthlyStats"
+        aiAnalysis:
+          type: string
+        recommendations:
+          type: array
+          items:
+            type: string
+
+    # ─── GAMIFICATION SCHEMAS ───────────────────────────────────────────────────
+    GamificationProfile:
+      type: object
+      required: [level, xp, xpToNextLevel, totalXp, coins, badges, disciplineScore, grade]
+      properties:
+        level:
+          type: integer
+        xp:
+          type: integer
+        xpToNextLevel:
+          type: integer
+        totalXp:
+          type: integer
+        coins:
+          type: integer
+        badges:
+          type: array
+          items:
+            $ref: "#/components/schemas/Badge"
+        disciplineScore:
+          type: number
+        grade:
+          type: string
+          enum: [A+, A, B, C, D, F]
+        consecutiveDays:
+          type: integer
+        totalAchievements:
+          type: integer
+        unlockedAchievements:
+          type: integer
+        dailyQuests:
+          type: array
+          items:
+            $ref: "#/components/schemas/Quest"
+
+    Badge:
+      type: object
+      required: [id, name, icon, description, earnedAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        icon:
+          type: string
+        description:
+          type: string
+        earnedAt:
+          type: string
+          format: date-time
+        rarity:
+          type: string
+          enum: [common, rare, epic, legendary]
+
+    Achievement:
+      type: object
+      required: [id, name, icon, description, condition, unlocked]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        icon:
+          type: string
+        description:
+          type: string
+        condition:
+          type: string
+        unlocked:
+          type: boolean
+        unlockedAt:
+          type: ["string", "null"]
+          format: date-time
+        xpReward:
+          type: integer
+        rarity:
+          type: string
+          enum: [common, rare, epic, legendary]
+        progress:
+          type: number
+        maxProgress:
+          type: number
+
+    Quest:
+      type: object
+      required: [id, title, description, type, progress, target, xpReward, completed]
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        type:
+          type: string
+          enum: [daily, weekly, monthly]
+        progress:
+          type: integer
+        target:
+          type: integer
+        xpReward:
+          type: integer
+        coinReward:
+          type: integer
+        completed:
+          type: boolean
+        expiresAt:
+          type: string
+          format: date-time
+
+    # ─── AI SCHEMAS ─────────────────────────────────────────────────────────────
+    AiReport:
+      type: object
+      required: [date, analysis, messages, recommendation, mood, productivityScore]
+      properties:
+        date:
+          type: string
+          format: date
+        analysis:
+          type: string
+        messages:
+          type: array
+          items:
+            type: string
+        recommendation:
+          type: string
+        mood:
+          type: string
+          enum: [excellent, good, average, poor, critical]
+        productivityScore:
+          type: number
+        warnings:
+          type: array
+          items:
+            type: string
+        compliments:
+          type: array
+          items:
+            type: string
+
+    AiMessage:
+      type: object
+      required: [id, role, content, createdAt]
+      properties:
+        id:
+          type: integer
+        role:
+          type: string
+          enum: [user, assistant, system]
+        content:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        messageType:
+          type: string
+          enum: [chat, daily_report, warning, encouragement, advice]
+
+    AiMessageInput:
+      type: object
+      required: [content]
+      properties:
+        content:
+          type: string
+          minLength: 1
