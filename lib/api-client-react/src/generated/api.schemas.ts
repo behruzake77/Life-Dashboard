@@ -762,35 +762,22 @@ export interface AiMessageInput {
 
 export interface AuthUser {
   id: string;
-  /** @nullable */
-  email: string | null;
-  /** @nullable */
-  firstName: string | null;
-  /** @nullable */
-  lastName: string | null;
-  /** @nullable */
-  profileImageUrl: string | null;
+  username: string;
 }
 
 export interface AuthUserEnvelope {
   user: AuthUser | null;
 }
 
-export interface MobileTokenExchangeRequest {
-  /** @minLength 1 */
-  code: string;
-  /** @minLength 1 */
-  code_verifier: string;
-  /** @minLength 1 */
-  redirect_uri: string;
-  /** @minLength 1 */
-  state: string;
-  /** @minLength 1 */
-  nonce?: string;
-}
-
-export interface MobileTokenExchangeSuccess {
-  token: string;
+export interface AuthCredentials {
+  /**
+     * @minLength 3
+     * @maxLength 32
+     * @pattern ^[a-zA-Z0-9_]+$
+     */
+  username: string;
+  /** @minLength 6 */
+  password: string;
 }
 
 export const LogoutSuccessValue = {
@@ -806,23 +793,6 @@ export interface ErrorEnvelope {
  * Opaque session token — `Bearer <sid>`.
  */
 export type AuthorizationSessionHeaderParameter = string;
-
-export type BeginBrowserLoginParams = {
-/**
- * Relative path to redirect to after login (must start with `/`). Defaults to `/`.
- */
-returnTo?: string;
-};
-
-export type HandleBrowserLoginCallbackParams = {
-code?: string;
-state?: string;
-iss?: string;
-};
-
-export type LogoutBrowserSessionParams = {
-returnTo?: string;
-};
 
 export type GetTasksParams = {
 status?: GetTasksStatus;

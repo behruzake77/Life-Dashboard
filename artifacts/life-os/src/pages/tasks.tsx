@@ -59,17 +59,31 @@ export default function Tasks() {
     description: "",
     category: "work",
     priority: "medium" as TaskInputPriority,
+    startTime: "",
+    endTime: "",
   });
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTask.title) return;
 
-    createTask.mutate({ data: newTask }, {
+    if (newTask.startTime && newTask.endTime && newTask.endTime <= newTask.startTime) {
+      toast.error("Tugash vaqti boshlanish vaqtidan keyin bo'lishi kerak");
+      return;
+    }
+
+    const { startTime, endTime, ...rest } = newTask;
+    createTask.mutate({
+      data: {
+        ...rest,
+        ...(startTime ? { startTime } : {}),
+        ...(endTime ? { endTime } : {}),
+      },
+    }, {
       onSuccess: () => {
         toast.success("Vazifa muvaffaqiyatli qo'shildi");
         setIsCreateOpen(false);
-        setNewTask({ title: "", description: "", category: "work", priority: "medium" });
+        setNewTask({ title: "", description: "", category: "work", priority: "medium", startTime: "", endTime: "" });
         queryClient.invalidateQueries({ queryKey: getGetTasksQueryKey() });
       }
     });
@@ -192,6 +206,28 @@ export default function Tasks() {
                     </SelectContent>
                   </Select>
                 </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Clock className="w-3 h-3" /> Boshlanish vaqti
+                    </label>
+                    <Input
+                      type="time"
+                      value={newTask.startTime}
+                      onChange={e => setNewTask({...newTask, startTime: e.target.value})}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Clock className="w-3 h-3" /> Tugash vaqti
+                    </label>
+                    <Input
+                      type="time"
+                      value={newTask.endTime}
+                      onChange={e => setNewTask({...newTask, endTime: e.target.value})}
+                    />
+                  </div>
+                </div>
                 <div className="pt-4 flex justify-end gap-2">
                   <Button type="button" variant="ghost" onClick={() => setIsCreateOpen(false)}>
                     Bekor qilish
@@ -266,6 +302,14 @@ export default function Tasks() {
                     <CalendarIcon className="w-3 h-3" />
                     {format(new Date(task.createdAt), "dd MMM")}
                   </div>
+                  {(task.startTime || task.endTime) && (
+                    <div className="flex items-center gap-1 text-xs">
+                      <Clock className="w-3 h-3" />
+                      {task.startTime}
+                      {task.startTime && task.endTime ? " – " : ""}
+                      {task.endTime}
+                    </div>
+                  )}
                 </div>
                 
                 <div className="col-span-3 md:col-span-2 flex justify-center">

@@ -8,7 +8,7 @@ Shaxsiy nazorat va intizom platformasi — foydalanuvchining shaxsiy murabbiyasi
 - `pnpm run typecheck` — full typecheck across all packages
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- Required env: `DATABASE_URL` (Postgres, pre-provisioned), `SESSION_SECRET`, `REPL_ID` (used by Replit Auth) — all already set.
+- Required env: `DATABASE_URL` (Postgres, pre-provisioned), `SESSION_SECRET` — all already set.
 
 ## Stack
 
@@ -49,6 +49,7 @@ Shaxsiy nazorat va intizom platformasi — foydalanuvchining shaxsiy murabbiyasi
 - AI responses are rule-based (no external AI API needed) — based on task completion analysis
 - Dark mode is the default; glassmorphism UI with electric violet (#7C3AED) accent
 - All user-facing text is in Uzbek language
+- Auth is custom username/password (bcrypt hash in `users` table) with cookie sessions in `sessions` table — no external auth provider. Registration is open (any new username can sign up); this is a single/few-user personal app so no invite gating was added.
 
 ## User preferences
 

@@ -45,105 +45,62 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AuthUserEnvelope'
-  /login:
-    get:
-      tags: [Auth]
-      operationId: beginBrowserLogin
-      summary: Start the browser OIDC login flow
-      parameters:
-        - name: returnTo
-          in: query
-          required: false
-          description: Relative path to redirect to after login (must start with `/`). Defaults to `/`.
-          schema:
-            type: string
-      responses:
-        '302':
-          description: Redirect to the OIDC authorization endpoint.
-  /callback:
-    get:
-      tags: [Auth]
-      operationId: handleBrowserLoginCallback
-      summary: Complete the browser OIDC login flow
-      parameters:
-        - name: code
-          in: query
-          required: false
-          schema:
-            type: string
-        - name: state
-          in: query
-          required: false
-          schema:
-            type: string
-        - name: iss
-          in: query
-          required: false
-          schema:
-            type: string
-      responses:
-        '302':
-          description: Redirect to the `returnTo` path on success (defaults to `/`) or `/api/login` on failure.
-  /logout:
-    get:
-      tags: [Auth]
-      operationId: logoutBrowserSession
-      summary: Clear the session and begin OIDC logout
-      parameters:
-        - $ref: '#/components/parameters/AuthorizationSessionHeader'
-        - $ref: '#/components/parameters/SessionCookie'
-        - name: returnTo
-          in: query
-          required: false
-          schema:
-            type: string
-            default: /
-      responses:
-        '302':
-          description: Redirect to the OIDC provider logout URL with a post-logout redirect back to the validated `returnTo` path.
-  /mobile-auth/token-exchange:
+  /auth/register:
     post:
       tags: [Auth]
-      operationId: exchangeMobileAuthorizationCode
-      summary: Exchange a mobile OIDC code for a session token
+      operationId: registerUser
+      summary: Create an account with a username and password
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/MobileTokenExchangeRequest'
+              $ref: '#/components/schemas/AuthCredentials'
       responses:
         '200':
-          description: Session created successfully.
+          description: Account created and session started.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/MobileTokenExchangeSuccess'
+                $ref: '#/components/schemas/AuthUserEnvelope'
         '400':
-          description: Missing or invalid required fields.
+          description: Username already taken or invalid input.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
-        '401':
-          description: Token did not contain usable claims.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-        '500':
-          description: Token exchange failed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-  /mobile-auth/logout:
+  /auth/login:
     post:
       tags: [Auth]
-      operationId: logoutMobileSession
-      summary: Delete a mobile session token
+      operationId: loginUser
+      summary: Log in with a username and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthCredentials'
+      responses:
+        '200':
+          description: Session started.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthUserEnvelope'
+        '401':
+          description: Invalid username or password.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /auth/logout:
+    post:
+      tags: [Auth]
+      operationId: logoutUser
+      summary: Clear the current session
       parameters:
         - $ref: '#/components/parameters/AuthorizationSessionHeader'
+        - $ref: '#/components/parameters/SessionCookie'
       responses:
         '200':
           description: Logout processed.
@@ -1818,18 +1775,12 @@ components:
     # ─── AUTH SCHEMAS ───────────────────────────────────────────────────────────
     AuthUser:
       type: object
-      required: [id, email, firstName, lastName, profileImageUrl]
+      required: [id, username]
       properties:
         id:
           type: string
-        email:
-          type: [string, 'null']
-        firstName:
-          type: [string, 'null']
-        lastName:
-          type: [string, 'null']
-        profileImageUrl:
-          type: [string, 'null']
+        username:
+          type: string
     AuthUserEnvelope:
       type: object
       required: [user]
@@ -1838,31 +1789,18 @@ components:
           oneOf:
             - $ref: '#/components/schemas/AuthUser'
             - type: 'null'
-    MobileTokenExchangeRequest:
+    AuthCredentials:
       type: object
-      required: [code, code_verifier, redirect_uri, state]
+      required: [username, password]
       properties:
-        code:
+        username:
           type: string
-          minLength: 1
-        code_verifier:
+          minLength: 3
+          maxLength: 32
+          pattern: '^[a-zA-Z0-9_]+$'
+        password:
           type: string
-          minLength: 1
-        redirect_uri:
-          type: string
-          minLength: 1
-        state:
-          type: string
-          minLength: 1
-        nonce:
-          type: string
-          minLength: 1
-    MobileTokenExchangeSuccess:
-      type: object
-      required: [token]
-      properties:
-        token:
-          type: string
+          minLength: 6
     LogoutSuccess:
       type: object
       required: [success]

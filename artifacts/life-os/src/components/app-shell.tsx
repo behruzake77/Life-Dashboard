@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { useGetGamificationProfile, useGetDashboardStats } from "@workspace/api-client-react";
-import { useAuth } from "@workspace/replit-auth-web";
+import { useAuth } from "@/lib/auth";
 import { LogOut } from "lucide-react";
 
 const navigation = [
@@ -91,11 +91,8 @@ function SidebarNav({
       <div className="border-t border-border/50 px-4 py-3 flex items-center justify-between gap-2">
         <div className="min-w-0">
           <div className="text-sm font-medium truncate" data-testid="text-user-name">
-            {user?.firstName || user?.email || "Foydalanuvchi"}
+            {user?.username || "Foydalanuvchi"}
           </div>
-          {user?.email && (
-            <div className="text-xs text-muted-foreground truncate">{user.email}</div>
-          )}
         </div>
         <Button variant="ghost" size="icon" onClick={logout} data-testid="button-logout" title="Chiqish">
           <LogOut className="h-4 w-4" />
