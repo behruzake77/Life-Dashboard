@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Moon, Sun, Monitor, Bell, Shield, Lock, Smartphone, Globe, EyeOff, Save, Palette } from "lucide-react";
+import { Moon, Sun, Monitor, Bell, Shield, Lock, Smartphone, Globe, EyeOff, Save, Palette, Volume2, VolumeX } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
@@ -7,6 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { useTheme } from "next-themes";
+import { playSound } from "@/lib/sound";
+import { requestNotificationPermission, getPermission, notify } from "@/lib/notifications";
 
 const SETTINGS_KEY = "life_os_settings";
 
@@ -34,10 +36,12 @@ export default function Settings() {
   const [mounted, setMounted] = useState(false);
   const [settings, setSettings] = useState(defaultSettings);
   const [isDirty, setIsDirty] = useState(false);
+  const [notifPermission, setNotifPermission] = useState<NotificationPermission | null>(null);
 
   useEffect(() => {
     setMounted(true);
     setSettings(loadSettings());
+    setNotifPermission(getPermission());
   }, []);
 
   const updateSetting = (key: keyof typeof settings, value: any) => {
@@ -47,12 +51,38 @@ export default function Settings() {
 
   const handleSave = () => {
     try {
+      playSound('click');
       localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
       setIsDirty(false);
       toast.success("Sozlamalar saqlandi ✓");
     } catch {
       toast.error("Saqlashda xatolik yuz berdi");
     }
+  };
+
+  const handleToggleNotifications = async (enabled: boolean) => {
+    updateSetting('pushNotifications', enabled);
+    if (enabled) {
+      const permission = await requestNotificationPermission();
+      setNotifPermission(permission);
+      if (permission === 'granted') {
+        // Save immediately so notify() reads the new setting
+        const updated = { ...settings, pushNotifications: true };
+        localStorage.setItem(SETTINGS_KEY, JSON.stringify(updated));
+        setIsDirty(false);
+        notify('🔔 Bildirishnomalar yoqildi!', {
+          body: 'Ultimate Life OS endi sizga eslatmalar yuboradi.',
+        });
+        toast.success("Bildirishnomalar yoqildi ✓");
+      } else if (permission === 'denied') {
+        updateSetting('pushNotifications', false);
+        toast.error("Brauzer bildirishnomalarni rad etdi. Brauzer sozlamalaridan ruxsat bering.");
+      }
+    }
+  };
+
+  const handleSoundPreview = () => {
+    playSound('success');
   };
 
   if (!mounted) return null;
@@ -119,10 +149,23 @@ export default function Settings() {
                 <p className="font-medium">Ovoz effektlari</p>
                 <p className="text-sm text-muted-foreground">Tugmalar va bildirishnomalar uchun ovozlar</p>
               </div>
-              <Switch
-                checked={settings.soundEffects}
-                onCheckedChange={(v) => updateSetting('soundEffects', v)}
-              />
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleSoundPreview}
+                  disabled={!settings.soundEffects}
+                  className="text-muted-foreground gap-1.5"
+                  title="Ovozni sinab ko'ring"
+                >
+                  {settings.soundEffects ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+                  <span className="text-xs">Sinab ko'ring</span>
+                </Button>
+                <Switch
+                  checked={settings.soundEffects}
+                  onCheckedChange={(v) => updateSetting('soundEffects', v)}
+                />
+              </div>
             </div>
 
             <Separator />
@@ -211,12 +254,23 @@ export default function Settings() {
                 <Smartphone className="w-5 h-5 text-muted-foreground mt-0.5" />
                 <div>
                   <p className="font-medium">Push bildirishnomalar</p>
-                  <p className="text-sm text-muted-foreground">Brauzerda bildirishnomalar olish</p>
+                  <p className="text-sm text-muted-foreground">
+                    Brauzerda bildirishnomalar olish
+                    {notifPermission === 'denied' && (
+                      <span className="block text-destructive text-xs mt-0.5">
+                        ⚠️ Brauzer ruxsatni rad etgan — brauzer sozlamalaridan yoqing
+                      </span>
+                    )}
+                    {notifPermission === 'granted' && settings.pushNotifications && (
+                      <span className="block text-success text-xs mt-0.5">✓ Ruxsat berilgan</span>
+                    )}
+                  </p>
                 </div>
               </div>
               <Switch
                 checked={settings.pushNotifications}
-                onCheckedChange={(v) => updateSetting('pushNotifications', v)}
+                onCheckedChange={handleToggleNotifications}
+                disabled={notifPermission === 'denied'}
               />
             </div>
 

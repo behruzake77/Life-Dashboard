@@ -28,6 +28,8 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
+import { playSound } from "@/lib/sound";
+import { notifyHabitDone } from "@/lib/notifications";
 
 export default function Habits() {
   const queryClient = useQueryClient();
@@ -63,11 +65,13 @@ export default function Habits() {
     });
   };
 
-  const handleLog = (habitId: number) => {
+  const handleLog = (habitId: number, habitName?: string) => {
     const dateStr = format(new Date(), "yyyy-MM-dd");
     logHabit.mutate({ id: habitId, data: { date: dateStr, completed: true } }, {
       onSuccess: () => {
-        toast.success("Barakalla! Odat bajarildi.");
+        playSound('habitDone');
+        if (habitName) notifyHabitDone(habitName);
+        toast.success("Barakalla! Odat bajarildi. 🔥");
         queryClient.invalidateQueries({ queryKey: getGetHabitsQueryKey() });
       }
     });
@@ -245,7 +249,7 @@ export default function Habits() {
                 <CardFooter className="pt-0 border-t border-border/30 px-6 py-4 mt-auto">
                   <Button 
                     className="w-full h-12 text-md font-bold shadow-[0_0_15px_rgba(0,0,0,0.1)] hover:shadow-[0_0_20px_rgba(var(--primary),0.3)] transition-all"
-                    onClick={() => handleLog(habit.id)}
+                    onClick={() => handleLog(habit.id, habit.name)}
                     style={{ 
                       backgroundColor: habit.color ? `${habit.color}20` : 'transparent',
                       color: habit.color || 'inherit',

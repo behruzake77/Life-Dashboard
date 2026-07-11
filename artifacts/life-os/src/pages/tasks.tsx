@@ -39,6 +39,8 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
+import { playSound } from "@/lib/sound";
+import { notifyTaskComplete } from "@/lib/notifications";
 
 export default function Tasks() {
   const queryClient = useQueryClient();
@@ -89,10 +91,17 @@ export default function Tasks() {
     });
   };
 
-  const handleStatusUpdate = (id: number, status: TaskStatus) => {
+  const handleStatusUpdate = (id: number, status: TaskStatus, title?: string) => {
     updateTask.mutate({ id, data: { status } }, {
       onSuccess: () => {
-        toast.success("Vazifa holati yangilandi");
+        if (status === 'completed') {
+          playSound('success');
+          if (title) notifyTaskComplete(title);
+          toast.success("Vazifa bajarildi! ✅");
+        } else {
+          playSound('click');
+          toast.success("Vazifa holati yangilandi");
+        }
         queryClient.invalidateQueries({ queryKey: getGetTasksQueryKey() });
       }
     });
@@ -101,6 +110,7 @@ export default function Tasks() {
   const handleFail = (id: number) => {
     failTask.mutate({ id, data: { reason: "Muvaffaqiyatsiz bajarildi" } }, {
       onSuccess: () => {
+        playSound('error');
         toast.error("Vazifa muvaffaqiyatsiz yakunlandi", {
           style: { backgroundColor: 'hsl(var(--destructive))', color: 'white' }
         });
@@ -333,7 +343,7 @@ export default function Tasks() {
                         size="icon" 
                         variant="ghost" 
                         className="h-8 w-8 text-success hover:text-success hover:bg-success/10"
-                        onClick={() => handleStatusUpdate(task.id, 'completed')}
+                        onClick={() => handleStatusUpdate(task.id, 'completed', task.title)}
                         title="Bajarildi"
                       >
                         <CheckCircle className="h-4 w-4" />

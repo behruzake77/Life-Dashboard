@@ -12,6 +12,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { format } from "date-fns";
+import { playSound } from "@/lib/sound";
+import { notifyPomodoroComplete } from "@/lib/notifications";
 
 export default function Pomodoro() {
   const queryClient = useQueryClient();
@@ -51,10 +53,12 @@ export default function Pomodoro() {
   };
 
   const toggleTimer = () => {
+    playSound('click');
     setIsActive(!isActive);
   };
 
   const handleStop = () => {
+    playSound('click');
     setIsActive(false);
     setTimeLeft(getInitialTime(mode));
   };
@@ -62,7 +66,10 @@ export default function Pomodoro() {
   const handleComplete = () => {
     setIsActive(false);
     
-    // Play sound notification here if we had one
+    // Play sound and send notification
+    playSound('complete');
+    notifyPomodoroComplete(mode);
+
     toast.success(mode === "focus" ? "Fokus seansi yakunlandi!" : "Tanaffus tugadi!", {
       icon: mode === "focus" ? <Brain className="h-5 w-5 text-primary" /> : <Coffee className="h-5 w-5 text-warning" />
     });
