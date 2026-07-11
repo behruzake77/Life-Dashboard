@@ -12,7 +12,9 @@ export const sessionsTable = pgTable(
   (table) => [index('IDX_session_expire').on(table.expire)],
 );
 
-export const usersTable = pgTable('users', {
+// Table name is prefixed to avoid colliding with tables from other apps that
+// may share this Postgres instance.
+export const usersTable = pgTable('life_os_users', {
   id: varchar('id')
     .primaryKey()
     .default(sql`gen_random_uuid()`),

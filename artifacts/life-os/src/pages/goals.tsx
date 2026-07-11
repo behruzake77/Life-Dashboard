@@ -1,22 +1,23 @@
 import { useState } from "react";
 import { 
   useGetGoals, 
+  useGetGoal,
   getGetGoalsQueryKey,
+  getGetGoalQueryKey,
   useCreateGoal,
-  useUpdateGoal,
   useDeleteGoal,
   useCreateGoalStep,
   useUpdateGoalStep,
   GoalInputPriority
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { format } from "date-fns";
-import { Target, Plus, CheckCircle, Circle, MountainSnow, CalendarIcon, ChevronRight } from "lucide-react";
+import { Target, Plus, CheckCircle, Circle, MountainSnow, CalendarIcon, ChevronRight, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
   DialogContent,
@@ -25,20 +26,27 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
+import { format } from "date-fns";
 
 export default function Goals() {
   const queryClient = useQueryClient();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [selectedGoalId, setSelectedGoalId] = useState<number | null>(null);
 
-  const { data: goalsData, isLoading } = useGetGoals({
+  const { data: goals = [], isLoading } = useGetGoals({
     query: { queryKey: getGetGoalsQueryKey() }
   });
 
+  // Load selected goal's details (with steps)
+  const { data: selectedGoalData } = useGetGoal(
+    selectedGoalId ?? 0,
+    { query: { enabled: selectedGoalId != null, queryKey: getGetGoalQueryKey(selectedGoalId ?? 0) } }
+  );
+
   const createGoal = useCreateGoal();
+  const deleteGoal = useDeleteGoal();
   const createStep = useCreateGoalStep();
   const updateStep = useUpdateGoalStep();
 
@@ -60,8 +68,21 @@ export default function Goals() {
         setIsCreateOpen(false);
         setNewGoal({ title: "", description: "", priority: "high" });
         queryClient.invalidateQueries({ queryKey: getGetGoalsQueryKey() });
-      }
+      },
+      onError: () => toast.error("Maqsad qo'shishda xatolik")
     });
+  };
+
+  const handleDelete = (id: number) => {
+    if (confirm("Rostdan ham bu maqsadni o'chirmoqchimisiz?")) {
+      deleteGoal.mutate({ id }, {
+        onSuccess: () => {
+          toast.success("Maqsad o'chirildi");
+          if (selectedGoalId === id) setSelectedGoalId(null);
+          queryClient.invalidateQueries({ queryKey: getGetGoalsQueryKey() });
+        }
+      });
+    }
   };
 
   const handleAddStep = (e: React.FormEvent, goalId: number) => {
@@ -72,21 +93,24 @@ export default function Goals() {
       onSuccess: () => {
         toast.success("Qadam qo'shildi");
         setNewStepTitle("");
+        queryClient.invalidateQueries({ queryKey: getGetGoalQueryKey(goalId) });
         queryClient.invalidateQueries({ queryKey: getGetGoalsQueryKey() });
-      }
+      },
+      onError: () => toast.error("Qadam qo'shishda xatolik")
     });
   };
 
   const toggleStep = (goalId: number, stepId: number, completed: boolean) => {
     updateStep.mutate({ id: goalId, stepId, data: { completed: !completed } }, {
       onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getGetGoalQueryKey(goalId) });
         queryClient.invalidateQueries({ queryKey: getGetGoalsQueryKey() });
       }
     });
   };
 
-  // Safe fallback if goals is undefined
-  const goals = goalsData || [];
+  const selectedGoal = selectedGoalData?.goal;
+  const selectedSteps = selectedGoalData?.steps ?? [];
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
@@ -115,6 +139,7 @@ export default function Goals() {
                 value={newGoal.title}
                 onChange={e => setNewGoal({...newGoal, title: e.target.value})}
                 required
+                autoFocus
                 className="text-lg"
               />
               <Textarea 
@@ -138,7 +163,7 @@ export default function Goals() {
         {/* Goals List */}
         <div className="lg:col-span-4 space-y-4">
           <h2 className="font-semibold text-lg flex items-center gap-2 mb-4">
-            <Target className="w-5 h-5 text-primary" /> Active Maqsadlar
+            <Target className="w-5 h-5 text-primary" /> Faol Maqsadlar
           </h2>
           
           {isLoading ? (
@@ -147,35 +172,44 @@ export default function Goals() {
             <div className="text-center py-10 bg-muted/20 rounded-xl border border-dashed border-border/50">
               <MountainSnow className="w-12 h-12 text-muted-foreground mx-auto mb-3 opacity-50" />
               <p className="text-muted-foreground font-medium">Hali maqsadlar yo'q.</p>
+              <p className="text-muted-foreground text-sm mt-1">Birinchi maqsadingizni qo'ying!</p>
             </div>
           ) : (
             goals.map((g: any) => (
-              <motion.div key={g.goal.id} layout>
+              <motion.div key={g.id} layout>
                 <Card 
-                  className={`cursor-pointer transition-all hover:border-primary/50 ${selectedGoalId === g.goal.id ? 'border-primary shadow-[0_0_15px_rgba(var(--primary),0.15)] bg-primary/5' : 'glass-panel'}`}
-                  onClick={() => setSelectedGoalId(g.goal.id)}
+                  className={`cursor-pointer transition-all hover:border-primary/50 ${selectedGoalId === g.id ? 'border-primary shadow-[0_0_15px_rgba(var(--primary),0.15)] bg-primary/5' : 'glass-panel'}`}
+                  onClick={() => setSelectedGoalId(g.id)}
                 >
                   <CardHeader className="p-4 pb-2">
-                    <CardTitle className="text-base flex justify-between items-start">
-                      <span className="line-clamp-2">{g.goal.title}</span>
-                      {selectedGoalId === g.goal.id && <ChevronRight className="w-4 h-4 text-primary shrink-0 ml-2" />}
+                    <CardTitle className="text-base flex justify-between items-start gap-2">
+                      <span className="line-clamp-2">{g.title}</span>
+                      <div className="flex items-center shrink-0 gap-1">
+                        {selectedGoalId === g.id && <ChevronRight className="w-4 h-4 text-primary" />}
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleDelete(g.id); }}
+                          className="text-muted-foreground hover:text-destructive transition-colors"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="p-4 pt-0">
                     <div className="flex justify-between items-center text-xs mb-2 text-muted-foreground">
                       <span>Progress</span>
-                      <span className="font-bold text-foreground">{g.goal.progressPercent || 0}%</span>
+                      <span className="font-bold text-foreground">{g.progressPercent || 0}%</span>
                     </div>
-                    <Progress value={g.goal.progressPercent || 0} className="h-1.5" />
+                    <Progress value={g.progressPercent || 0} className="h-1.5" />
                     <div className="mt-3 flex gap-4 text-xs text-muted-foreground">
                       <div className="flex items-center gap-1">
                         <CheckCircle className="w-3 h-3 text-success" />
-                        {g.steps?.filter((s:any) => s.completed).length || 0} / {g.steps?.length || 0} qadam
+                        {g.completedSteps || 0} / {g.totalSteps || 0} qadam
                       </div>
-                      {g.goal.deadline && (
+                      {g.deadline && (
                         <div className="flex items-center gap-1 text-warning">
                           <CalendarIcon className="w-3 h-3" />
-                          {format(new Date(g.goal.deadline), "dd MMM, yyyy")}
+                          {format(new Date(g.deadline), "dd MMM, yyyy")}
                         </div>
                       )}
                     </div>
@@ -195,9 +229,9 @@ export default function Goals() {
             </div>
           ) : (
             <AnimatePresence mode="wait">
-              {goals.filter((g:any) => g.goal.id === selectedGoalId).map((g:any) => (
+              {selectedGoal && (
                 <motion.div
-                  key={g.goal.id}
+                  key={selectedGoal.id}
                   initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -20 }}
@@ -207,24 +241,24 @@ export default function Goals() {
                     <CardHeader>
                       <div className="flex justify-between items-start mb-2">
                         <span className="px-3 py-1 bg-primary/20 text-primary text-xs font-semibold rounded-full uppercase tracking-wider">
-                          {g.goal.priority || 'Maqsad'}
+                          {selectedGoal.priority || 'Maqsad'}
                         </span>
                         <div className="text-3xl font-black font-mono text-primary/80">
-                          {g.goal.progressPercent || 0}%
+                          {selectedGoal.progressPercent || 0}%
                         </div>
                       </div>
-                      <CardTitle className="text-2xl">{g.goal.title}</CardTitle>
-                      {g.goal.description && (
-                        <CardDescription className="text-base mt-2">{g.goal.description}</CardDescription>
+                      <CardTitle className="text-2xl">{selectedGoal.title}</CardTitle>
+                      {selectedGoal.description && (
+                        <CardDescription className="text-base mt-2">{selectedGoal.description}</CardDescription>
                       )}
                     </CardHeader>
                     
-                    {g.goal.aiAdvice && (
+                    {selectedGoal.aiAdvice && (
                       <CardContent>
                         <div className="bg-primary/5 border border-primary/20 rounded-lg p-4 text-sm relative overflow-hidden">
                           <div className="absolute top-0 left-0 w-1 h-full bg-primary" />
                           <p className="italic text-muted-foreground mb-1 font-semibold">AI Murabbiy maslahati:</p>
-                          <p>{g.goal.aiAdvice}</p>
+                          <p>{selectedGoal.aiAdvice}</p>
                         </div>
                       </CardContent>
                     )}
@@ -237,12 +271,12 @@ export default function Goals() {
                     </CardHeader>
                     <CardContent className="space-y-4">
                       <div className="space-y-2">
-                        {g.steps?.length === 0 ? (
+                        {selectedSteps.length === 0 ? (
                           <div className="text-center py-6 text-muted-foreground text-sm border border-dashed rounded-lg">
                             Qadamlar hali qo'shilmagan. Qayerdan boshlaysiz?
                           </div>
                         ) : (
-                          g.steps?.map((step: any) => (
+                          selectedSteps.map((step: any) => (
                             <div 
                               key={step.id} 
                               className={`flex items-start gap-3 p-3 rounded-lg transition-colors border ${
@@ -250,7 +284,7 @@ export default function Goals() {
                               }`}
                             >
                               <button 
-                                onClick={() => toggleStep(g.goal.id, step.id, step.completed)}
+                                onClick={() => toggleStep(selectedGoal.id, step.id, step.completed)}
                                 className="mt-0.5 shrink-0"
                               >
                                 {step.completed ? (
@@ -267,7 +301,7 @@ export default function Goals() {
                         )}
                       </div>
 
-                      <form onSubmit={(e) => handleAddStep(e, g.goal.id)} className="flex gap-2 pt-4 border-t border-border/50">
+                      <form onSubmit={(e) => handleAddStep(e, selectedGoal.id)} className="flex gap-2 pt-4 border-t border-border/50">
                         <Input 
                           placeholder="Yangi qadam..." 
                           value={newStepTitle}
@@ -281,7 +315,7 @@ export default function Goals() {
                     </CardContent>
                   </Card>
                 </motion.div>
-              ))}
+              )}
             </AnimatePresence>
           )}
         </div>

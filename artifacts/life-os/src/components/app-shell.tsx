@@ -18,8 +18,6 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { useGetGamificationProfile, useGetDashboardStats } from "@workspace/api-client-react";
-import { useAuth } from "@/lib/auth";
-import { LogOut } from "lucide-react";
 
 const navigation = [
   { name: "Asosiy", href: "/", icon: LayoutDashboard },
@@ -38,14 +36,10 @@ const navigation = [
 function SidebarNav({
   location,
   gamification,
-  user,
-  logout,
   onNavigate,
 }: {
   location: string;
   gamification: any;
-  user: ReturnType<typeof useAuth>["user"];
-  logout: () => void;
   onNavigate?: () => void;
 }) {
   return (
@@ -88,16 +82,6 @@ function SidebarNav({
         })}
       </nav>
 
-      <div className="border-t border-border/50 px-4 py-3 flex items-center justify-between gap-2">
-        <div className="min-w-0">
-          <div className="text-sm font-medium truncate" data-testid="text-user-name">
-            {user?.username || "Foydalanuvchi"}
-          </div>
-        </div>
-        <Button variant="ghost" size="icon" onClick={logout} data-testid="button-logout" title="Chiqish">
-          <LogOut className="h-4 w-4" />
-        </Button>
-      </div>
     </>
   );
 }
@@ -108,14 +92,13 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   const { data: gamification } = useGetGamificationProfile({ query: { enabled: true, queryKey: ['gamificationProfile'] } });
   const { data: stats } = useGetDashboardStats({ query: { enabled: true, queryKey: ['dashboardStats'] } });
-  const { user, logout } = useAuth();
 
   return (
     <div className="flex min-h-screen flex-col bg-background/95 dark:bg-background">
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar (desktop) */}
         <aside className="hidden w-64 flex-col border-r border-border/50 bg-background/50 backdrop-blur-xl md:flex">
-          <SidebarNav location={location} gamification={gamification} user={user} logout={logout} />
+          <SidebarNav location={location} gamification={gamification} />
         </aside>
 
         {/* Sidebar (mobile drawer) */}
@@ -124,8 +107,6 @@ export function AppShell({ children }: { children: ReactNode }) {
             <SidebarNav
               location={location}
               gamification={gamification}
-              user={user}
-              logout={logout}
               onNavigate={() => setMobileNavOpen(false)}
             />
           </SheetContent>
