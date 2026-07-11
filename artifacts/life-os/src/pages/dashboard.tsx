@@ -83,8 +83,8 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Warning display if bad grade */}
-      {stats && (stats.today.grade === "D" || stats.today.grade === "F") && (
+      {/* Warning display only when user has tasks but performance is low */}
+      {stats && stats.today.total > 0 && (stats.today.grade === "D" || stats.today.grade === "F") && (
         <motion.div 
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}

@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { ThemeProvider } from 'next-themes';
 import NotFound from '@/pages/not-found';
 import { Route, Switch, Router as WouterRouter } from 'wouter';
 import { AppShell } from '@/components/app-shell';
@@ -15,17 +16,8 @@ import Pomodoro from '@/pages/pomodoro';
 import Gamification from '@/pages/gamification';
 import AiCoach from '@/pages/ai';
 import Settings from '@/pages/settings';
-import { useEffect } from 'react';
 
 const queryClient = new QueryClient();
-
-// Initial dark mode setup
-function ThemeInit() {
-  useEffect(() => {
-    document.documentElement.classList.add('dark');
-  }, []);
-  return null;
-}
 
 function Router() {
   return (
@@ -50,15 +42,16 @@ function Router() {
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <ThemeInit />
-      <TooltipProvider>
-        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}>
-          <Router />
-        </WouterRouter>
-        <Toaster />
-      </TooltipProvider>
-    </QueryClientProvider>
+    <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}>
+            <Router />
+          </WouterRouter>
+          <Toaster richColors position="top-right" />
+        </TooltipProvider>
+      </QueryClientProvider>
+    </ThemeProvider>
   );
 }
 
